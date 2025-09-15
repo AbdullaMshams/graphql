@@ -1,0 +1,57 @@
+/* Center the container */
+.login-container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: url('your-background.jpg') no-repeat center center;
+  background-size: cover;
+}
+
+/* Glassy form */
+.login-form {
+  background: rgba(255, 255, 255, 0.1); /* Transparent white */
+  backdrop-filter: blur(10px); /* Blur effect for glass look */
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 300px; /* Adjust for your taste */
+}
+
+/* Inputs */
+.login-form input {
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  outline: none;
+  transition: 0.3s ease;
+}
+
+.login-form input::placeholder {
+  color: rgba(255,255,255,0.7);
+}
+
+/* Input hover/focus */
+.login-form input:focus {
+  background: rgba(255,255,255,0.3);
+}
+
+/* Button */
+.login-form button {
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,255,255,0.3);
+  color: #fff;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.login-form button:hover {
+  background: rgba(255,255,255,0.5);
+}

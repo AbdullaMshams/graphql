@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { gqlFetch } from "../services/graphql";
 import DragToLogout from "../components/DragToLogout";
 import  MagnetLines  from "../components/MagnetLines.jsx";
-import  BackgroundRippleEffect  from "../components/ui/background-ripple-effect.jsx";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -170,18 +169,6 @@ const auditSeries = Object.values(auditByDay).sort((a, b) => a.date.localeCompar
     "bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-lg transition hover:scale-[1.02] hover:shadow-xl flex flex-col items-center justify-center text-white";
 
   return (
-    <div className="relative min-h-screen overflow-hidden flex items-center justify-center p-6">
-    {/* Background layer */}
-    <BackgroundRippleEffect
-      rows={8}        // tweak to taste
-      cols={27}
-      cellSize={56}
-      className="absolute inset-0 z-0"
-    />
-
-    {/* Foreground content */}
-    <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 auto-rows-[200px] gap-6 max-w-7xl w-full">
-    
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-950 flex items-center justify-center p-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 auto-rows-[200px] gap-6 max-w-7xl w-full ">
         
@@ -322,8 +309,6 @@ const auditSeries = Object.values(auditByDay).sort((a, b) => a.date.localeCompar
           />
         </div>
       </div>
-      </div>
-  </div>
     </div>
   );
 }

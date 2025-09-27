@@ -1,6 +1,6 @@
 "use client";;
 import React, { useMemo, useRef, useState } from "react";
-import { cn } from "../../lib/utils";
+import { cn } from "../lib/utils";
 
 export const BackgroundRippleEffect = ({
   rows = 8,
@@ -43,8 +43,8 @@ export const BackgroundRippleEffect = ({
 
 const DivGrid = ({
   className,
-  rows = 7,
-  cols = 30,
+  rows = 700,
+  cols = 300,
   cellSize = 56,
   borderColor = "#3f3f46",
   fillColor = "rgba(14,165,233,0.3)",

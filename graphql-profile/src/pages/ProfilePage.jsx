@@ -4,9 +4,11 @@ import { gqlFetch } from "../services/graphql";
 import DragToLogout from "../components/DragToLogout";
 // import { Boxes } from "../components/background-boxes";
 // import { CardBody, CardContainer, CardItem } from "../components/3d-card";
-import StackedAuditChart from "../components/StackedAuditChart";
+// import StackedAuditChart from "../components/StackedAuditChart";
 import { HeroGeometric } from "../components/ui/shadcn-io/shape-landing-hero/index";
-import { PinContainer } from "../components/ui/shadcn-io/3d-pin/index";
+// import { PinContainer } from "../components/ui/shadcn-io/3d-pin/index";
+
+import  LevelProgress  from "../components/LevelProgress";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -23,6 +25,7 @@ import {
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hoveredValue, setHoveredValue] = useState(null);
   const [data, setData] = useState(null);
   const navigate = useNavigate();
 
@@ -89,6 +92,41 @@ export default function ProfilePage() {
     }
   `;
 
+  const PENDING_AUDITS_QUERY = `
+  query PendingAuditsQuery($auditorId: Int!) {
+    audit(
+      where: { 
+        auditorId: { _eq: $auditorId },
+        # NOTE: 'audit' status needs to be wrapped in quotes
+        group: { status: { _eq: audit } }, 
+        closedAt: { _is_null: true }
+      }
+      order_by: { createdAt: desc }
+    ) {
+      id
+      grade
+      createdAt
+      attrs
+      auditorLogin 
+      closedAt
+       private { 
+        code 
+      }
+      group {
+        id
+        status
+        captainLogin
+        object {
+          id
+          name
+          type
+        }
+         
+      }
+    }
+  }
+`;
+
   // --- Data Loading ---
   useEffect(() => {
     async function loadData() {
@@ -112,6 +150,15 @@ export default function ProfilePage() {
           { userId, rootEventId },
           token
         );
+
+        // Step 4: Get pending audits data
+        const auditsRes = await gqlFetch(
+          PENDING_AUDITS_QUERY,
+          { auditorId: userId }, // Pass the dynamic userId here
+          token
+        );
+        const pendingAudits = auditsRes.audit || [];
+
         const user = res.user[0];
         const level = res.level[0]?.amount || 0;
         const totalXp = Math.floor(
@@ -160,9 +207,17 @@ export default function ProfilePage() {
           a.date.localeCompare(b.date)
         );
 
-        const xLabels = auditSeries.map((item) => item.date);
         const doneData = auditSeries.map((item) => item.up);
         const receivedData = auditSeries.map((item) => item.down);
+
+        const totalDone = doneData.reduce((a, b) => a + b, 0);
+        const totalReceived = receivedData.reduce((a, b) => a + b, 0);
+
+        const ratio = totalReceived > 0 ? totalDone / totalReceived : 0;
+
+        // FIX: Ensure totalDoneKb and totalReceivedKb are calculated and stored
+        const totalDoneKb = (totalDone / 1000).toFixed(1);
+        const totalReceivedKb = (totalReceived / 1000).toFixed(1);
 
         setData({
           username: user.login,
@@ -176,13 +231,17 @@ export default function ProfilePage() {
           xpSeries,
           auditSeries,
           auditChart: {
-            xLabels,
+            // Store the KB strings for direct use in the hover logic
+            totalDoneKb,
+            totalReceivedKb,
             doneData,
             receivedData,
+            ratio,
           },
+          // Store the fetched pending audits
+          pendingAudits,
         });
       } catch (err) {
-
         if (
           err.message.includes("JWTExpired") ||
           err.message.includes("invalid-jwt") ||
@@ -202,38 +261,287 @@ export default function ProfilePage() {
   }, [navigate]);
 
   if (loading) return <div className="text-white">Loading...</div>;
-  // if (error) return <div className="text-red-500">{error}</div>;
+  if (error) return <div className="text-red-500">{error}</div>; // Keep this check for debugging
   if (!data) return null;
 
   // --- Card style (glassmorphism) ---
   const cardClass =
-    "bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-lg transition hover:scale-[1.02] hover:shadow-xl flex flex-col items-center justify-center text-white";
+    "bg-white/10  rounded-2xl shadow-lg transition hover:scale-[1.02] hover:shadow-xl flex flex-col items-center justify-center text-white";
+
+  const cardInnerClass =
+    "bg-white/10 rounded-2xl shadow-lg transition hover:scale-[1.02] hover:shadow-xl flex flex-col items-center justify-center text-white";
 
   return (
     <div className="relative min-h-screen overflow-hidden">
       <HeroGeometric className="absolute inset-0 z-0" />
       {/* Foreground content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 auto-rows-[200px] gap-6 max-w-7xl w-full">
-          {/* User Info with 3D Card Effect */}
-          <div className="col-span-2 row-span-1">
-            <div className={`${cardClass} w-full h-full flex`}>
-              <PinContainer title={data.name} className="w-full h-full">
-                <div className="flex flex-col justify-center h-full w-full p-6 rounded-xl bg-gray-50 dark:bg-black dark:border-white/[0.2] border border-black/[0.1]">
-                  <h3 className="text-xl font-bold text-neutral-800 dark:text-white mb-1">
-                    {data.username || "Unnamed"}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-neutral-300">
-                    Active
-                  </p>
-                </div>
-              </PinContainer>
+        <div className="grid grid-cols-6 auto-rows-[170px] gap-6 max-w-7xl w-full">
+          {/* Row 1 - Welcome */}
+          <div
+            className={`${cardClass} col-span-2 row-span-1 flex flex-col justify-center p-6`}
+          >
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {data.name} 👋
+            </h2>
+            {/* <p className="text-gray-300">Here’s your latest progress overview.</p> */}
+          </div>
+
+          {/* Row 1 - Sidebar (User Info / Logout / Stats) */}
+          <div
+            className={`${cardClass} col-span-1 row-span-1 flex flex-col bg-[#222329]`}
+          ></div>
+
+          <div
+            className={`${cardClass} col-span-1 row-span-2 flex flex-col bg-[#222329]`}
+          ></div>
+
+          {/* Row 2 - XP Progression */}
+
+          {/* Row 2 - Audit Ratio Graph & Pending Audits (Combined Block) */}
+          <div
+            className={`${cardClass} col-span-2 row-span-3 flex flex-col p-6 bg-[#222329]`}
+          >
+            <h3 className="text-lg font-semibold mb-4 text-white">
+              Audit Ratio
+            </h3>
+
+            {/* --- Ratio Graph with Hover Effect --- */}
+            <div className="relative w-full flex justify-center h-40 mb-6">
+              {/* CALCULATIONS FOR GRAPH AND HOVER ZONES */}
+              {(() => {
+                const r = 70;
+                const circumference = 2 * Math.PI * r;
+                // Get data safely
+                const ratio = data.auditChart.ratio || 0;
+                const totalDoneKb = data.auditChart.totalDoneKb || "0.0";
+                const totalReceivedKb =
+                  data.auditChart.totalReceivedKb || "0.0";
+
+                const filledLength = ratio * circumference;
+                console.log(filledLength);
+                const hatchedLength = circumference - filledLength;
+                console.log(hatchedLength);
+                const filledAngle = ratio * 360;
+                console.log(filledAngle);
+
+                return (
+                  <>
+                    {/* SVG Graph */}
+                    <svg
+                      viewBox="0 0 160 160"
+                      className="w-40 h-40 transform -rotate-90"
+                    >
+                      {/* ... (defs, circle 1, 2, 3) ... */}
+                      <defs>
+                        <pattern
+                          id="hatchPattern"
+                          patternUnits="userSpaceOnUse"
+                          width="8"
+                          height="8"
+                        >
+                          <path
+                            d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2"
+                            stroke="rgba(255, 255, 255, 0.4)"
+                            strokeWidth="1"
+                          />
+                        </pattern>
+                      </defs>
+
+                      {/* 1. Base Circle (Dark gray track, the total 1.0) */}
+                      <circle
+                        cx="80"
+                        cy="80"
+                        r={r}
+                        stroke="rgba(255, 255, 255, 0.1)"
+                        strokeWidth="15"
+                        fill="none"
+                      />
+                      {/* 2. Filled Segment (DONE/UP) */}
+                      <circle
+                        cx="80"
+                        cy="80"
+                        r={r}
+                        stroke="rgba(255, 255, 255, 0.9)"
+                        strokeWidth="15"
+                        fill="none"
+                        strokeDasharray={`${filledLength} ${circumference}`}
+                        strokeLinecap="butt"
+                      />
+                      {/* 3. Hatched Segment (RECEIVED/DOWN) */}
+                      <circle
+                        cx="80"
+                        cy="80"
+                        r={r}
+                        stroke="url(#hatchPattern)"
+                        strokeWidth="15"
+                        fill="none"
+                        strokeDasharray={`0 ${filledLength} ${hatchedLength} 0`}
+                        strokeDashoffset={-1}
+                        strokeLinecap="butt"
+                      />
+                    </svg>
+
+                    {/* Center Text & Tooltip */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                      {hoveredValue ? (
+                        <span className="text-2xl font-bold mb-1 text-yellow-400">
+                          {hoveredValue}k
+                        </span>
+                      ) : (
+                        <span className="text-4xl font-bold mb-1">
+                          {ratio.toFixed(1)}
+                        </span>
+                      )}
+                      <span className="text-base text-gray-400">
+                        {/* Correct comparison for the label */}
+                        {hoveredValue
+                          ? hoveredValue === totalDoneKb
+                            ? "Audits Done"
+                            : "Audits Received"
+                          : "Ratio"}
+                      </span>
+                    </div>
+
+                    {/* HOVER ZONES (Hidden Divs) */}
+                    <div className="absolute w-40 h-40 rounded-full cursor-pointer">
+                      {/* ZONE 1: Done/UP (Filled Segment) */}
+                      {/* ZONE 1: Received/DOWN (Hatched Segment) - Place this FIRST (lower z-index) */}
+                      {/* Mask is white ONLY where the circle is NOT filled */}
+                      <div
+                        className="absolute inset-0 rounded-full"
+                        onMouseEnter={() => setHoveredValue(totalReceivedKb)}
+                        onMouseLeave={() => setHoveredValue(null)}
+                        style={{
+                          // Mask allows interaction ONLY in the UNFILLED (striped) part
+                          maskImage: `conic-gradient(from 90deg, white 0deg ${
+                            360 - filledAngle
+                          }deg, transparent ${360 - filledAngle}deg 360deg)`,
+                          transform: "rotate(90deg)",
+                        }}
+                      />
+
+                      {/* ZONE 2: Done/UP (Filled Segment) - Place this SECOND (higher z-index) */}
+                      {/* Mask is white ONLY where the circle IS filled */}
+                      <div
+                        className="absolute inset-0 rounded-full"
+                        onMouseEnter={() => setHoveredValue(totalDoneKb)}
+                        onMouseLeave={() => setHoveredValue(null)}
+                        style={{
+                          // Mask allows interaction ONLY in the FILLED part
+                          maskImage: `conic-gradient(from 90deg, transparent 0deg ${
+                            360 - filledAngle
+                          }deg, white ${360 - filledAngle}deg 360deg)`,
+                          transform: "rotate(90deg)",
+                        }}
+                      />
+
+                      {/* ZONE 2: Received/DOWN (Hatched Segment) */}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            {/* --- End Ratio Graph --- */}
+
+            {/* --- Pending Audits List (Under the Graph) --- */}
+            <div className="flex flex-col flex-1 overflow-y-auto w-full pt-4">
+              <h4 className="text-lg font-semibold text-gray-300 mb-3">
+                Pending Audits
+                {/* Fallback to ensure it's not undefined */}
+                {data?.pendingAudits
+                  ? ` (${data.pendingAudits.length})`
+                  : " (0)"}
+              </h4>
+
+              {/* Fallback check for the data */}
+              {!data?.pendingAudits || data.pendingAudits.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center">
+                  No open audits found. Great job!
+                </p>
+              ) : (
+                <ul className="space-y-3 w-full">
+                  {data.pendingAudits.map((audit) => (
+                    <li
+                      key={audit.id}
+                      className="p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition"
+                    >
+                      <p className="text-base font-medium text-white truncate">
+                        {audit.group?.object?.name || "Unknown Project"}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        **Auditor:** {audit.auditorLogin}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        **Group Captain:** {audit.group?.captainLogin || "N/A"}
+                      </p>
+
+                      {audit.private?.code && (
+                        <p className="text-xs text-yellow-400 font-mono mt-1 truncate">
+                          Code: {audit.private.code}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
-          {/* Chart 1: XP Progression */}
+
           <div className={`${cardClass} col-span-2 row-span-3 p-6`}>
-            {/* <h3 className="text-lg font-semibold mb-2 text-white">XP Progression (kXP)</h3> */}
-            <h2 className="text-lg font-semibold mb-3">Recent Transactions</h2>
+            <h3 className="text-lg font-semibold mb-2 text-white">
+              XP Progression
+            </h3>
+            <div className="mt-2 text-right">
+              <span className="text-sm text-gray-300">Total XP</span>
+              <span className="text-2xl font-bold ml-2">{data.totalXp}k</span>
+            </div>
+            <ResponsiveContainer width="100%" height="80%">
+              <AreaChart data={data.xpSeries}>
+                <defs>
+                  <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#87F6A3" stopOpacity={40} />
+                    <stop offset="100%" stopColor="#87F6A3" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date"
+                  tick={false}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis tick={false} axisLine={false} tickLine={false} />
+                <CartesianGrid
+                  stroke="rgba(255,255,255,0.06)"
+                  vertical={false}
+                  strokeDasharray="3 3"
+                />
+                <Tooltip
+                  cursor={{ stroke: "#87F6A3", strokeWidth: 1 }}
+                  contentStyle={{
+                    background: "rgba(20,20,20,0.9)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 12,
+                    backdropFilter: "blur(10px)",
+                    color: "#fff",
+                    padding: "10px 15px",
+                  }}
+                  labelStyle={{ color: "#aaa" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="xp"
+                  stroke="#87F6A3"
+                  fill="url(#xpGrad)"
+                  strokeWidth={3}
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+
+            <h3 className="text-lg font-semibold mb-3 text-white">
+              Recent Transactions
+            </h3>
             <ul className="space-y-2 w-full overflow-y-auto">
               {data.transactions.map((tx) => (
                 <li
@@ -271,127 +579,35 @@ export default function ProfilePage() {
               ))}
             </ul>
           </div>
-          {/* Chart 2: Audit Up vs Down */}
-          <div className={`${cardClass} col-span-2 row-span-3 p-6`}>
-            <h3 className="text-lg font-semibold mb-2 text-white">
-              Audit Ratio Breakdown
-            </h3>
-            <StackedAuditChart
-              xLabels={data.auditChart.xLabels}
-              doneData={data.auditChart.doneData}
-              receivedData={data.auditChart.receivedData}
-            />
-          </div>
-          {/* Level */}
-          <div className={`${cardClass} col-span-1 row-span-1`}>
-            <span className="text-sm text-gray-300">Level</span>
-            <span className="text-2xl font-bold">{data.level}</span>
-          </div>
-          {/* Audit Ratio */}
-          <div className={`${cardClass} col-span-1 row-span-1`}>
-            <div>
-            <span className="text-sm text-gray-300">Audit Ratio</span>
+
+          
+            <div className={`${cardClass} col-span-2 row-span-1 p-6`}>
+              <LevelProgress currentLevel={data.level} />
             </div>
-            <span className="text-2xl font-bold">{data.auditRatio}</span>
-          </div>
-          {/* Recent Transactions */}
-          <div
-            className={`${cardClass} col-span-2 row-span-1 p-4 overflow-y-auto`}
-          >
-            <div className="lex flex-col items-start justify-center min-w-[100px]">
-             <span className="text-sm text-gray-300">Total XP</span>
-            <span className="text-2xl font-bold">{data.totalXp}k</span>
-            </div>
-            <ResponsiveContainer width="100%" height="50%">
-              <AreaChart data={data.xpSeries}>
-                <defs>
-                  <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#87F6A3" stopOpacity={40} />
-                    <stop offset="100%" stopColor="#87F6A3" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="date"
-                  // tick={{ fill: 'rgba(255,255,255,0.8)', fontSize: 10 }}
-                  tick={false}
-                  axisLine={false}
-                  tickLine={false}
-                  padding={{ left: 15, right: 15 }}
-                />
-                <YAxis
-                  // tick={{ fill: 'rgba(255,255,255,0.8)', fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={0} // force all ticks to show
-                  tickCount={9} // number of ticks to render
-                  domain={[0, "dataMax + 80"]} // always start at 0, end a bit above highest value
-                  tickFormatter={(value) => `${value}`} // optional formatting
-                  tick={false} // hides numbers
-                  // axisLine={false} // hides line
-                  // tickLine={false} // hides small tick marks
-                />
-                <CartesianGrid
-                  stroke="rgba(255,255,255,0.06)"
-                  vertical={false}
-                  strokeDasharray="3 3"
-                />
-                <Tooltip
-                  cursor={{ stroke: "#87F6A3", strokeWidth: 1 }}
-                  contentStyle={{
-                    background: "rgba(20,20,20,0.9)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    backdropFilter: "blur(10px)",
-                    color: "#fff",
-                    padding: "10px 15px",
-                  }}
-                  labelStyle={{ color: "#aaa" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="xp"
-                  stroke="#87F6A3"
-                  fill="url(#xpGrad)"
-                  strokeWidth={3}
-                  dot={false}
-                  isAnimationActive={true}
-                  animationEasing="ease-in-out"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-            
-          </div>
-          {/* XP */}
-          <div className={`${cardClass} col-span-1 row-span-1`}>
-            <span className="text-sm text-gray-300">Total XP</span>
-            <span className="text-2xl font-bold">{data.totalXp}k</span>
-          </div>
-          {/* Cohort */}
-          <div className={`${cardClass} col-span-1 row-span-1`}>
+          
+          <div className={`${cardClass} col-span-1 row-span-1 p-6`}>
             <span className="text-sm text-gray-300">Cohort</span>
             <span className="text-lg font-bold">{data.cohort}</span>
           </div>
-          {/* Current Project */}
-          <div
-            className={`${cardClass} col-span-1 row-span-1 text-center px-2`}
-          >
-            <span className="text-xs text-left text-gray-300">
-              Current Project
-            </span>
-            <span className="text-xl font-bold">{data.currentProject}</span>
+          <div className={`${cardClass} col-span-1 row-span-1 p-6`}>
+            <span className="text-sm text-gray-300">Current Project</span>
+            <span className="text-lg font-bold">{data.currentProject}</span>
           </div>
-          <div className={`${cardClass} col-span-1 row-span-1 relative`}>
-            hola
+          <div className={`${cardClass} col-span-2 row-span-1 p-6`}>
+            <div className="mt-4 cursor-pointer">
+              <DragToLogout
+                onLogout={() => {
+                  localStorage.removeItem("JWT");
+                  navigate("/login");
+                }}
+              />
+            </div>
           </div>
-          {/* Logout */}
-          <div className="col-span-1 row-span-1 cursor-pointer">
-            <DragToLogout
-              onLogout={() => {
-                localStorage.removeItem("JWT");
-                navigate("/login");
-              }}
-            />
-          </div>
+
+          {/* Row 3 - Transaction History */}
+          {/* <div className={`${cardClass} col-span-4 row-span-2 p-6 overflow-y-auto`}>
+          
+        </div> */}
         </div>
       </div>
     </div>

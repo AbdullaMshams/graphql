@@ -14,6 +14,9 @@ module.exports = {
   ],
   theme: {
   	extend: {
+			fontFamily: {
+        kunst: ['Kunst', 'sans-serif'], // custom font
+      },
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',

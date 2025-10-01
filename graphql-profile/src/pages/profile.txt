@@ -1,0 +1,460 @@
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { gqlFetch } from "../services/graphql";
+import DragToLogout from "../components/DragToLogout";
+// import { Boxes } from "../components/background-boxes";
+// import { CardBody, CardContainer, CardItem } from "../components/3d-card";
+import StackedAuditChart from "../components/StackedAuditChart";
+import { HeroGeometric } from "../components/ui/shadcn-io/shape-landing-hero/index";
+import { PinContainer } from "../components/ui/shadcn-io/3d-pin/index";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  BarChart,
+  Bar,
+  Legend,
+} from "recharts";
+
+export default function ProfilePage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+  const navigate = useNavigate();
+
+  // --- Queries ---
+  const USER_ID_QUERY = `
+    { user { id } }
+  `;
+  const ROOT_EVENT_QUERY = `
+    query GetRootEventId($userId: Int!) {
+      event_user(
+        where: {
+          userId: { _eq: $userId }
+          event: { parentId: { _is_null: true }, path: { _eq: "/bahrain/bh-module" } }
+        }
+      ) {
+        event { id }
+      }
+    }
+  `;
+  const DASHBOARD_QUERY = `
+    query DashboardData($userId: Int!, $rootEventId: Int!) {
+      user(where: { id: { _eq: $userId } }) {
+        id
+        login
+        firstName
+        lastName
+        profile
+        attrs
+        campus
+      }
+      level: transaction(
+        limit: 1
+        order_by: { amount: desc }
+        where: { userId: { _eq: $userId }, type: { _eq: "level" }, eventId: { _eq: $rootEventId } }
+      ) { amount }
+      totalUp: transaction_aggregate(where: { userId: { _eq: $userId }, type: { _eq: "up" } }) {
+        aggregate { sum { amount } }
+      }
+      totalDown: transaction_aggregate(where: { userId: { _eq: $userId }, type: { _eq: "down" } }) {
+        aggregate { sum { amount } }
+      }
+      totalXp: transaction_aggregate(
+        where: { userId: { _eq: $userId }, type: { _eq: "xp" }, eventId: { _eq: $rootEventId } }
+      ) {
+        aggregate { sum { amount } }
+      }
+      cohort: label_user(where: { userId: { _eq: $userId } }, limit: 1) { labelName }
+      transactions: transaction(
+        where: { userId: { _eq: $userId }, type: { _in: ["xp", "up", "down"] } }
+        order_by: { createdAt: desc }
+      ) {
+        id
+        type
+        amount
+        createdAt
+        object { name }
+      }
+      currentProject: group_user(
+        where: { userId: { _eq: $userId }, group: { status: { _eq: working } } }
+        limit: 1
+      ) {
+        group { object { name type } status path }
+      }
+    }
+  `;
+
+  // --- Data Loading ---
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem("JWT");
+      if (!token) return navigate("/login");
+      try {
+        // Step 1: Get user ID
+        const payload = await gqlFetch(USER_ID_QUERY, {}, token);
+        const userId = payload.user[0].id;
+
+        // Step 2: Get root event ID
+        const rootRes = await gqlFetch(ROOT_EVENT_QUERY, { userId }, token);
+        const rootEventId = rootRes.event_user[0]?.event?.id;
+        if (!rootEventId) throw new Error("No root event found");
+
+        // Step 3: Get dashboard data
+        const res = await gqlFetch(
+          DASHBOARD_QUERY,
+          { userId, rootEventId },
+          token
+        );
+        const user = res.user[0];
+        const level = res.level[0]?.amount || 0;
+        const totalXp = Math.floor(
+          (res.totalXp?.aggregate?.sum?.amount ?? 0) / 1000
+        );
+        const up = res.totalUp?.aggregate?.sum?.amount ?? 0;
+        const down = res.totalDown?.aggregate?.sum?.amount ?? 0;
+        const auditRatio = (up / (down || 1)).toFixed(2);
+        const cohortLabel = res.cohort[0]?.labelName || "Unknown Cohort";
+        const transactions = res.transactions || [];
+        const currentProject =
+          res.currentProject[0]?.group?.object?.name || "No active project";
+
+        // XP progression (kXP per day)
+        // XP progression (kXP per day, last 6 months only)
+        const xpByDay = {};
+        const today = new Date();
+        const sixMonthsAgo = new Date(today);
+        sixMonthsAgo.setMonth(today.getMonth() - 6);
+
+        res.transactions
+          .filter((t) => {
+            return t.type === "xp" && new Date(t.createdAt) >= sixMonthsAgo;
+          })
+          .forEach((t) => {
+            const day = new Date(t.createdAt).toISOString().slice(0, 10);
+            xpByDay[day] = (xpByDay[day] || 0) + t.amount / 1000;
+          });
+
+        const xpSeries = Object.entries(xpByDay)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, xp]) => ({ date, xp }));
+
+        // Audit up vs down per day
+        // ...inside useEffect
+        const auditByDay = {};
+        res.transactions
+          .filter((t) => t.type === "up" || t.type === "down")
+          .forEach((t) => {
+            const day = new Date(t.createdAt).toISOString().slice(0, 10);
+            auditByDay[day] ||= { date: day, up: 0, down: 0 };
+            auditByDay[day][t.type] += t.amount;
+          });
+
+        const auditSeries = Object.values(auditByDay).sort((a, b) =>
+          a.date.localeCompare(b.date)
+        );
+
+   const doneData = auditSeries.map((item) => item.up);
+const receivedData = auditSeries.map((item) => item.down);
+
+const totalDone = doneData.reduce((a, b) => a + b, 0);
+const totalReceived = receivedData.reduce((a, b) => a + b, 0);
+
+const ratio = totalReceived > 0 ? totalDone / totalReceived : 0;
+
+
+        setData({
+  username: user.login,
+  name: user.firstName + user.lastName,
+  level,
+  auditRatio,
+  totalXp,
+  cohort: cohortLabel,
+  transactions,
+  currentProject,
+  xpSeries,
+  auditSeries,
+  auditChart: {
+    
+    doneData,
+    receivedData,
+    ratio, // ✅ now a number, not undefined
+  },
+});
+
+      } catch (err) {
+
+        if (
+          err.message.includes("JWTExpired") ||
+          err.message.includes("invalid-jwt") ||
+          err.message.includes("Unauthorized")
+        ) {
+          localStorage.removeItem("JWT");
+          navigate("/login");
+          return;
+        }
+
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [navigate]);
+
+  if (loading) return <div className="text-white">Loading...</div>;
+  // if (error) return <div className="text-red-500">{error}</div>;
+  if (!data) return null;
+
+  // --- Card style (glassmorphism) ---
+  const cardClass =
+    "bg-white/10  rounded-2xl shadow-lg transition hover:scale-[1.02] hover:shadow-xl flex flex-col items-center justify-center text-white";
+
+      const cardInnerClass =
+    "bg-white/10 rounded-2xl shadow-lg transition hover:scale-[1.02] hover:shadow-xl flex flex-col items-center justify-center text-white";
+
+
+  return (
+  <div className="relative min-h-screen overflow-hidden">
+    <HeroGeometric className="absolute inset-0 z-0" />
+    {/* Foreground content */}
+    <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
+      <div className="grid grid-cols-6 auto-rows-[120px] gap-6 max-w-7xl w-full">
+        
+        {/* Row 1 - Welcome */}
+        <div className={`col-span-4 row-span-2 flex flex-col justify-center p-6`}>
+          <h2 className="text-4xl font-bold text-white mb-2">
+            Welcome back,
+          </h2>
+          <h2 className="text-6xl font-bold text-white mb-2">
+             {data.name} 👋
+          </h2>
+          {/* <p className="text-gray-300">Here’s your latest progress overview.</p> */}
+        </div>
+
+       {/* Row 1 - Sidebar (User Info / Logout / Stats) */}
+<div className={`${cardClass} col-span-2 row-span-6 flex flex-col bg-[#222329]`}>
+  {/* Inner grid for user details */}
+  <div className="grid grid-cols-2 auto-rows-[120px] gap-4 flex-1">
+    {/* Username box spanning 2 cols */}
+    <div className={`${cardInnerClass} col-span-2 flex flex-col items-center justify-center p-6`}>
+      <h3 className="text-xl font-bold">{data.username}</h3>
+      <p className="text-sm text-gray-400">Active</p>
+    </div>
+
+    {/* Level */}
+    <div className={`${cardInnerClass} flex flex-col items-center justify-center p-6 bg-[#fcf188]`}>
+      <span className="text-sm text-gray-300">Level</span>
+      <span className="text-2xl font-bold">{data.level}</span>
+    </div>
+
+    {/* Audit Ratio */}
+    <div className={`${cardInnerClass} flex flex-col items-center justify-center p-6`}>
+      <span className="text-sm text-gray-300">Audit Ratio</span>
+      <span className="text-2xl font-bold">{data.auditRatio}</span>
+    </div>
+
+    {/* Cohort */}
+    <div className={`${cardInnerClass} flex flex-col items-center justify-center p-6`}>
+      <span className="text-sm text-gray-300">Cohort</span>
+      <span className="text-lg font-bold">{data.cohort}</span>
+    </div>
+
+    {/* Current Project */}
+    <div className={`${cardInnerClass} flex flex-col items-center justify-center p-6`}>
+      <span className="text-sm text-gray-300">Current Project</span>
+      <span className="text-lg font-bold">{data.currentProject}</span>
+    </div>
+  </div>
+
+  {/* Logout at bottom */}
+  <div className="mt-4 cursor-pointer">
+    <DragToLogout
+      onLogout={() => {
+        localStorage.removeItem("JWT");
+        navigate("/login");
+      }}
+    />
+  </div>
+</div>
+
+
+        {/* Row 2 - XP Progression */}
+        <div className={`${cardClass} col-span-2 row-span-2 p-6`}>
+          <h3 className="text-lg font-semibold mb-2 text-white">XP Progression</h3>
+          <ResponsiveContainer width="100%" height="80%">
+            <AreaChart data={data.xpSeries}>
+              <defs>
+                <linearGradient id="xpGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#87F6A3" stopOpacity={40} />
+                  <stop offset="100%" stopColor="#87F6A3" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" tick={false} axisLine={false} tickLine={false} />
+              <YAxis tick={false} axisLine={false} tickLine={false} />
+              <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} strokeDasharray="3 3" />
+              <Tooltip
+                cursor={{ stroke: "#87F6A3", strokeWidth: 1 }}
+                contentStyle={{
+                  background: "rgba(20,20,20,0.9)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 12,
+                  backdropFilter: "blur(10px)",
+                  color: "#fff",
+                  padding: "10px 15px",
+                }}
+                labelStyle={{ color: "#aaa" }}
+              />
+              <Area
+                type="monotone"
+                dataKey="xp"
+                stroke="#87F6A3"
+                fill="url(#xpGrad)"
+                strokeWidth={3}
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="mt-2 text-right">
+            <span className="text-sm text-gray-300">Total XP</span>
+            <span className="text-2xl font-bold ml-2">{data.totalXp}k</span>
+          </div>
+        </div>
+
+        {/* Row 2 - Audit Ratio Graph */}
+        {/* Row 2 - Audit Ratio Graph - Styled to look like the image */}
+{/* Row 2 - Audit Ratio Graph - Styled to look like the image */}
+{/* Wrap the graph in a styled card to match the overall design */}
+<div className={`${cardClass} col-span-2 row-span-2 flex items-center justify-center p-6 bg-[#222329]`}>
+  <div className="relative w-40 h-40">
+    
+    {/* Define the pattern for the striped part inside the SVG */}
+    {/* Using 160x160 viewBox for a large enough area (r=70, sw=15, 2*70 + 15 = 155) */}
+    <svg viewBox="0 0 160 160" className="w-full h-full transform -rotate-90">
+      <defs>
+        <pattern id="hatchPattern" patternUnits="userSpaceOnUse" width="8" height="8">
+          <path
+            d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" // Diagonal lines
+            stroke="rgba(255, 255, 255, 0.4)" // Light color for the stripes
+            strokeWidth="1"
+          />
+        </pattern>
+      </defs>
+
+      {/* Constants for clarity and calculation */}
+      {/* Circumference (2 * pi * 70) is approximately 439.82 */}
+      {(() => {
+        const r = 70;
+        const circumference = 2 * Math.PI * r;
+        const ratio = data.auditChart.ratio;
+        const filledLength = ratio * circumference;
+        const hatchedLength = circumference - filledLength;
+
+        return (
+          <>
+            {/* 1. Base Circle (Dark gray track, the total 1.0) */}
+            <circle
+              cx="80"
+              cy="80"
+              r={r}
+              stroke="rgba(255, 255, 255, 0.1)" // Darker gray for the overall track
+              strokeWidth="15"
+              fill="none"
+            />
+
+            {/* 2. Filled Segment (Light Gray/White) - Represents the ratio (e.g., 0.6) */}
+            <circle
+              cx="80"
+              cy="80"
+              r={r}
+              stroke="rgba(255, 255, 255, 0.9)" // Solid light gray color for the filled part
+              strokeWidth="15"
+              fill="none"
+              strokeDasharray={`${filledLength} ${circumference}`}
+              strokeLinecap="butt" 
+            />
+
+            {/* 3. Hatched Segment (Stripes) - Represents the remaining portion (e.g., 0.4) */}
+            <circle
+              cx="80"
+              cy="80"
+              r={r}
+              stroke="url(#hatchPattern)" // Use the defined pattern for the stroke
+              strokeWidth="15"
+              fill="none"
+              // The dash array: 0 gap, filledLength (skip), hatchedLength (draw), 0 gap
+              strokeDasharray={`0 ${filledLength} ${hatchedLength} 0`}
+              // Rotate slightly to start drawing right after the filled segment ends
+              strokeDashoffset={-1} 
+              strokeLinecap="butt"
+            />
+          </>
+        );
+      })()}
+    </svg>
+    
+    {/* Center Text */}
+    <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+      <span className="text-4xl font-bold mb-1">
+        {data.auditChart.ratio.toFixed(1)}
+      </span>
+      <span className="text-base text-gray-400">Ratio</span>
+    </div>
+  </div>
+</div>
+
+
+        {/* Row 3 - Transaction History */}
+        <div className={`${cardClass} col-span-4 row-span-2 p-6 overflow-y-auto`}>
+          <h3 className="text-lg font-semibold mb-3 text-white">Recent Transactions</h3>
+          <ul className="space-y-2 w-full overflow-y-auto">
+            
+            {data.transactions.map((tx) => (
+              <li
+                key={tx.id}
+                className="flex justify-between items-center border-b border-white/10 pb-1"
+              >
+                <div className="flex flex-col">
+                  <span className="font-medium truncate max-w-[180px]">
+                    {tx.object?.name || tx.type}
+                  </span>
+                  <span className="text-xs text-gray-400 capitalize">
+                    {tx.type.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span
+                    className={
+                      tx.type === "xp"
+                        ? "text-green-400"
+                        : tx.type === "down"
+                        ? "text-red-400"
+                        : "text-blue-400"
+                    }
+                  >
+                    {(tx.amount / 1000).toFixed(1)}
+                  </span>
+                  <div className="text-xs text-gray-400">
+                    {new Date(tx.createdAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+);
+
+}

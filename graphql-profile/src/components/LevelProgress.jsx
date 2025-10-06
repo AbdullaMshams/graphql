@@ -2,110 +2,125 @@ import React from 'react';
 
 // --- Level Rank Definitions ---
 const RANKS = [
-  { level: 0, name: "Aspiring developer", color: "#60A5FA" },
-  { level: 10, name: "Beginner developer", color: "#34D399" },
-  { level: 20, name: "Apprentice developer", color: "#FBBF24" },
-  { level: 30, name: "Assistant developer", color: "#F87171" },
-  { level: 40, name: "Basic developer", color: "#A78BFA" },
-  { level: 50, name: "Junior developer", color: "#F472B6" },
-  { level: 55, name: "Confirmed developer", color: "#7DD3FC" },
-  { level: 60, name: "Confirmed developer", color: "#06B6D4" },
+  { level: 0, name: "Aspiring developer", color: "#60A5FA", gradient: "from-blue-400 to-blue-500" },
+  { level: 10, name: "Beginner developer", color: "#34D399", gradient: "from-emerald-400 to-emerald-500" },
+  { level: 20, name: "Apprentice developer", color: "#FBBF24", gradient: "from-amber-400 to-amber-500" },
+  { level: 30, name: "Assistant developer", color: "#F87171", gradient: "from-red-400 to-red-500" },
+  { level: 40, name: "Basic developer", color: "#A78BFA", gradient: "from-purple-400 to-purple-500" },
+  { level: 50, name: "Junior developer", color: "#F472B6", gradient: "from-pink-400 to-pink-500" },
+  { level: 55, name: "Confirmed developer", color: "#7DD3FC", gradient: "from-sky-300 to-sky-400" },
+  { level: 60, name: "Confirmed developer", color: "#06B6D4", gradient: "from-cyan-500 to-cyan-600" },
 ];
 
-
 export default function LevelProgress({ currentLevel }) {
-  // 1. Find the current and next rank thresholds (IMPROVED LOGIC)
-  
-  // Find the highest rank the user has achieved (level <= currentLevel)
+  // Find the current and next rank thresholds
   const currentRank = RANKS.reduce((bestRank, current) => {
     return current.level <= currentLevel && current.level > bestRank.level
       ? current 
       : bestRank;
-  }, { level: -1, name: "Unranked" }); // Start with a safe, low default rank
+  }, { level: -1, name: "Unranked", color: "#6B7280", gradient: "from-gray-500 to-gray-600" });
 
-  // Find the next rank the user is progressing toward (level > currentLevel)
-  // We filter to only include ranks higher than the current one, sort them by level, and pick the lowest one.
   const nextRank = RANKS
     .filter(rank => rank.level > currentLevel)
     .sort((a, b) => a.level - b.level)[0] || {
-    level: 999, // Represents the maximum possible rank if no higher rank is found
+    level: 999,
     name: "Master Developer",
-    color: "#84cc16"
+    color: "#84cc16",
+    gradient: "from-lime-500 to-lime-600"
   };
 
-  // 2. Calculate Progress
+  // Calculate Progress
   const startLevel = currentRank.level;
   const endLevel = nextRank.level;
   const totalSpan = endLevel - startLevel;
   const levelProgress = currentLevel - startLevel;
 
-  // Progress ratio from 0 to 1 (clamped between 0 and 1 for safety)
   let progressRatio = 0;
   if (totalSpan > 0) {
     progressRatio = levelProgress / totalSpan;
   } else if (currentLevel >= endLevel) {
-    progressRatio = 1; // Already reached max level / next rank
+    progressRatio = 1;
   }
   
-  // 3. SVG Math for Semi-Circle
-  const r = 50; // Radius
-  const strokeWidth = 10;
+  // SVG Math for Semi-Circle
+  const r = 55;
+  const strokeWidth = 12;
   const semiCircumference = Math.PI * r; 
   const filledLength = progressRatio * semiCircumference;
-  const pathD = `M 0,${r} a ${r},${r} 0 0 1 ${r * 2},0`;
+  const pathD = `M 5,${r} a ${r},${r} 0 0 1 ${r * 2},0`;
 
+  return (
+    <div className="w-full flex flex-col items-center justify-center relative">
+      {/* Glow Effect Behind Circle */}
+      <div 
+        className="absolute top-6 w-40 h-20 blur-3xl opacity-20 rounded-full pointer-events-none"
+        style={{ backgroundColor: currentRank.color }}
+      />
+      
+      {/* Semi-Circle Progress */}
+      <div className="relative mb-3" style={{ width: '160px', height: '180px' }}>
+        <svg
+          className="w-full h-full"
+          viewBox="-5 -5 130 80"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <defs>
+            <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={currentRank.color} stopOpacity="0.6" />
+              <stop offset="50%" stopColor={currentRank.color} stopOpacity="1" />
+              <stop offset="100%" stopColor={currentRank.color} stopOpacity="0.8" />
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
 
-return (
-  <div className="bg-gray-900 rounded-2xl shadow-lg p-6 flex flex-col items-center ">
-    {/* Semi-Circle Progress */}
-    <div className="relative">
-      <svg
-        className="w-full h-full transform origin-center"
-        viewBox="0 0 100 55"
-      >
-        {/* Base Track (Unfilled) */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.08)"
-          strokeWidth={strokeWidth}
-        />
+          {/* Base Track (Unfilled) */}
+          <path
+            d={pathD}
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.06)"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
 
-        {/* Progress Bar (Filled) */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke={currentRank.color}
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${filledLength} ${semiCircumference}`}
-          strokeLinecap="round"
-          className="transition-all duration-700 ease-out drop-shadow-[0_0_6px_rgba(0,0,0,0.6)]"
-        />
-      </svg>
+          {/* Progress Bar (Filled) */}
+          <path
+            d={pathD}
+            fill="none"
+            stroke="url(#progressGradient)"
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${filledLength} ${semiCircumference}`}
+            strokeLinecap="round"
+            filter="url(#glow)"
+            className="transition-all duration-1000 ease-out"
+            style={{
+              filter: `drop-shadow(0 0 8px ${currentRank.color})`
+            }}
+          />
+          
+          {/* Animated Endpoint Dot */}
+          
+        </svg>
 
-      {/* Level Number in the Center */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[45%] text-center">
-        <span className="text-4xl font-extrabold text-white drop-shadow-sm">
-          {currentLevel}
-        </span>
+        {/* Level Number in the Center */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 text-center" style={{ marginTop: '-8px' }}>
+          <div className="relative">
+            <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-300 drop-shadow-lg tracking-tight leading-none">
+              {currentLevel}
+            </span>
+            <div className="text-[10px] font-semibold text-gray-400 mt-0.5 tracking-widest uppercase">
+              Level
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    {/* Rank Name and Progress Text */}
-    <div className="mt-3 text-center">
-      <h3
-        className="text-lg font-semibold"
-        style={{ color: currentRank.color }}
-      >
-        {currentRank.name}
-      </h3>
-      <p className="text-sm text-gray-400">
-        {endLevel === 999
-          ? "Max rank achieved!"
-          : `${nextRank.level - currentLevel} levels to ${nextRank.name}`}
-      </p>
-    </div>
-  </div>
-);
-
-};
+      {/* Rank Name and Progress */}
+      </div>
+  );
+}

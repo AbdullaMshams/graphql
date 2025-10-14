@@ -9,7 +9,7 @@ export default function DragToLogout({ onLogout }) {
   const HANDLE_SIZE_W = 150; 
   const HANDLE_SIZE_H = 100; 
   const DRAG_CONSTRAINTS_RIGHT = 300; 
-  const LOGOUT_THRESHOLD = 200; // Drag distance needed to trigger logout
+  const LOGOUT_THRESHOLD = 300; // Drag distance needed to trigger logout
 
   // Color transformation
   const color = useTransform(x, [0, DRAG_CONSTRAINTS_RIGHT / 2, DRAG_CONSTRAINTS_RIGHT], [
@@ -57,7 +57,6 @@ export default function DragToLogout({ onLogout }) {
           }}
           className="absolute text-lg font-semibold text-green-400 whitespace-nowrap"
       >
-        Release to Logout
       </motion.span>
 
 
@@ -83,6 +82,7 @@ export default function DragToLogout({ onLogout }) {
           justifyContent: "center",
           alignItems: "center",
           cursor: "grab",
+          marginLeft: "10px",
         }}
         drag="x"
         dragConstraints={{ left: 0, right: DRAG_CONSTRAINTS_RIGHT }}

@@ -38,7 +38,7 @@ const AnimatedList = ({
     'Item 15'
   ],
   onItemSelect,
-  showGradients = true,
+  showGradients = false,
   enableArrowNavigation = true,
   className = '',
   itemClassName = '',
@@ -54,7 +54,7 @@ const AnimatedList = ({
 
   const handleScroll = e => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
-    setTopGradientOpacity(Math.min(scrollTop / 90, 0.5));
+    setTopGradientOpacity(Math.min(scrollTop / 90, 10));
     const bottomDistance = scrollHeight - (scrollTop + clientHeight);
     setBottomGradientOpacity(scrollHeight <= clientHeight ? 0 : Math.min(bottomDistance / 90, 0.5));
   };
@@ -110,7 +110,7 @@ const AnimatedList = ({
     <div className={`relative w-[500px] ${className}`}>
       <div
         ref={listRef}
-        className={`max-h-[400px] overflow-y-auto p-4 ${
+        className={`max-h-max overflow-y-auto p-4 ${
           displayScrollbar
             ? '[&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-[#060010] [&::-webkit-scrollbar-thumb]:bg-[#222] [&::-webkit-scrollbar-thumb]:rounded-[4px]'
             : 'scrollbar-hide'

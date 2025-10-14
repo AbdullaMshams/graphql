@@ -1,18 +1,26 @@
 import React from 'react';
 
+// NOTE: The ProfilePage is now passing the ACCENT_GREEN color via a prop.
+// We should define the fallback or primary colors here, but prioritize the prop.
+
 // --- Level Rank Definitions ---
+// We'll update the colors to be slightly more vibrant or use hex codes directly
 const RANKS = [
-  { level: 0, name: "Aspiring developer", color: "#60A5FA", gradient: "from-blue-400 to-blue-500" },
-  { level: 10, name: "Beginner developer", color: "#34D399", gradient: "from-emerald-400 to-emerald-500" },
-  { level: 20, name: "Apprentice developer", color: "#FBBF24", gradient: "from-amber-400 to-amber-500" },
-  { level: 30, name: "Assistant developer", color: "#F87171", gradient: "from-red-400 to-red-500" },
-  { level: 40, name: "Basic developer", color: "#A78BFA", gradient: "from-purple-400 to-purple-500" },
-  { level: 50, name: "Junior developer", color: "#F472B6", gradient: "from-pink-400 to-pink-500" },
-  { level: 55, name: "Confirmed developer", color: "#7DD3FC", gradient: "from-sky-300 to-sky-400" },
-  { level: 60, name: "Confirmed developer", color: "#06B6D4", gradient: "from-cyan-500 to-cyan-600" },
+  { level: 0, name: "Aspiring developer", color: "#C9F24D", gradient: "from-blue-400 to-blue-500" },
+  { level: 10, name: "Beginner developer", color: "#C9F24D", gradient: "from-emerald-400 to-emerald-500" },
+  { level: 20, name: "Apprentice developer", color: "#C9F24D", gradient: "from-amber-400 to-amber-500" },
+  { level: 30, name: "Assistant developer", color: "#C9F24D", gradient: "from-red-400 to-red-500" },
+  { level: 40, name: "Basic developer", color: "#C9F24D", gradient: "from-purple-400 to-purple-500" },
+  { level: 50, name: "Junior developer", color: "#C9F24D", gradient: "from-pink-400 to-pink-500" },
+  { level: 55, name: "Confirmed developer", color: "#C9F24D", gradient: "from-sky-300 to-sky-400" },
+  { level: 60, name: "Full-Stack developer", color: "#C9F24D", gradient: "from-cyan-500 to-cyan-600" },
 ];
 
-export default function LevelProgress({ currentLevel }) {
+// Updated to accept accentColor prop from ProfilePage.jsx
+export default function LevelProgress({ currentLevel, accentColor }) {
+  // Use the passed accent color as the default/master accent, falling back to a default if not passed.
+  const PRIMARY_COLOR = accentColor || '#C9F24D'; 
+
   // Find the current and next rank thresholds
   const currentRank = RANKS.reduce((bestRank, current) => {
     return current.level <= currentLevel && current.level > bestRank.level
@@ -25,7 +33,7 @@ export default function LevelProgress({ currentLevel }) {
     .sort((a, b) => a.level - b.level)[0] || {
     level: 999,
     name: "Master Developer",
-    color: "#84cc16",
+    color: PRIMARY_COLOR, // Use the accent color for the final rank
     gradient: "from-lime-500 to-lime-600"
   };
 
@@ -42,6 +50,9 @@ export default function LevelProgress({ currentLevel }) {
     progressRatio = 1;
   }
   
+  // Use the current rank color for the visuals
+  const visualColor = currentRank.color; 
+  
   // SVG Math for Semi-Circle
   const r = 55;
   const strokeWidth = 12;
@@ -50,12 +61,12 @@ export default function LevelProgress({ currentLevel }) {
   const pathD = `M 5,${r} a ${r},${r} 0 0 1 ${r * 2},0`;
 
   return (
-    <div className="w-full flex flex-col items-center justify-center relative">
-      {/* Glow Effect Behind Circle */}
-      <div 
+    <div className="w-full flex  items-center gap-5 justify-center relative">
+      {/* Glow Effect Behind Circle - UPDATED to use visualColor */}
+      {/* <div 
         className="absolute top-6 w-40 h-20 blur-3xl opacity-20 rounded-full pointer-events-none"
-        style={{ backgroundColor: currentRank.color }}
-      />
+        style={{ backgroundColor: visualColor }}
+      /> */}
       
       {/* Semi-Circle Progress */}
       <div className="relative mb-3" style={{ width: '160px', height: '180px' }}>
@@ -65,10 +76,11 @@ export default function LevelProgress({ currentLevel }) {
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
+            {/* UPDATED GRADIENT: Use the visualColor */}
             <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={currentRank.color} stopOpacity="0.6" />
-              <stop offset="50%" stopColor={currentRank.color} stopOpacity="1" />
-              <stop offset="100%" stopColor={currentRank.color} stopOpacity="0.8" />
+              <stop offset="0%" stopColor={visualColor} stopOpacity="0.8" />
+              <stop offset="50%" stopColor={visualColor} stopOpacity="1" />
+              <stop offset="100%" stopColor={visualColor} stopOpacity="0.8" />
             </linearGradient>
             <filter id="glow">
               <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -83,7 +95,7 @@ export default function LevelProgress({ currentLevel }) {
           <path
             d={pathD}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.06)"
+            stroke="rgba(255, 255, 255, 0.08)" // Slightly brighter track for visibility
             strokeWidth={strokeWidth}
             strokeLinecap="round"
           />
@@ -99,16 +111,14 @@ export default function LevelProgress({ currentLevel }) {
             filter="url(#glow)"
             className="transition-all duration-1000 ease-out"
             style={{
-              filter: `drop-shadow(0 0 8px ${currentRank.color})`
+              // Inline style for drop-shadow using the visualColor
+              filter: `drop-shadow(0 0 0px ${visualColor})` 
             }}
           />
-          
-          {/* Animated Endpoint Dot */}
-          
         </svg>
 
         {/* Level Number in the Center */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 text-center" style={{ marginTop: '-8px' }}>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 text-center">
           <div className="relative">
             <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-300 drop-shadow-lg tracking-tight leading-none">
               {currentLevel}
@@ -121,6 +131,14 @@ export default function LevelProgress({ currentLevel }) {
       </div>
 
       {/* Rank Name and Progress */}
+      <div className="flex flex-col items-center">
+        <span className="text-lg font-semibold text-white mt-1">{currentRank.name}</span>
+        {totalSpan > 0 && nextRank.level !== 999 && (
+          <span className="text-sm text-gray-400 mt-1">
+            {levelProgress}/{totalSpan} levels to {nextRank.name} 
+          </span>
+        )}
       </div>
+    </div>
   );
 }

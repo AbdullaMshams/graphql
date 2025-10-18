@@ -1,19 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import SpotlightCard from "../components/SpotlightCard";
-// FIX: Correcting the import path. Assuming the component is exported directly from the folder or index.js
 import { HeroGeometric } from "../components/ui/shadcn-io/shape-landing-hero";
-import  dash  from "../assets/dashboard.png";
-import LevelProgress from "../components/LevelProgress"; 
+import dash from "../assets/dashboard.png";
+import LevelProgress from "../components/LevelProgress";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
+  // 1. NEW STATE: To control the fade-in animation
+  const [isMounted, setIsMounted] = useState(false); 
   const navigate = useNavigate();
 
-   const DASHBOARD_IMAGE_URL = dash; 
+  const DASHBOARD_IMAGE_URL = dash;
+
+  // 2. NEW EFFECT: Trigger the animation when the component loads
+  useEffect(() => {
+    // We use a slight delay to ensure all assets/styles are ready before the animation starts
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 50); // Start the fade-in almost immediately after mounting
+
+    return () => clearTimeout(timer); // Cleanup
+  }, []);
 
   // Simple inline SVG Spinner component
   const Spinner = () => (
@@ -40,120 +51,47 @@ const LoginPage = () => {
   );
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setErrorMessage("");
-  setLoading(true);
+    e.preventDefault();
+    setErrorMessage("");
+    setLoading(true);
 
-  if (!usernameOrEmail.trim() || !password) {
-    setErrorMessage("Please enter username/email and password.");
-    setLoading(false);
-    return;
-  }
-
-  try {
-    const encoded = btoa(`${usernameOrEmail}:${password}`);
-    const res = await fetch("https://learn.reboot01.com/api/auth/signin", {
-      method: "POST",
-      headers: { Authorization: `Basic ${encoded}` },
-    });
-
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => null);
-      throw new Error(errBody?.error || `Login failed (${res.status})`);
+    if (!usernameOrEmail.trim() || !password) {
+      setErrorMessage("Please enter username/email and password.");
+      setLoading(false);
+      return;
     }
 
-    const data = await res.json();
-    const token = data?.JWT || data?.token || data;
+    try {
+      const encoded = btoa(`${usernameOrEmail}:${password}`);
+      const res = await fetch("https://learn.reboot01.com/api/auth/signin", {
+        method: "POST",
+        headers: { Authorization: `Basic ${encoded}` },
+      });
 
-    if (!token) throw new Error("No token returned from server");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.error || `Login failed (${res.status})`);
+      }
 
-    // Save token before navigation
-    localStorage.setItem("JWT", token);
-    setPassword("");
+      const data = await res.json();
+      const token = data?.JWT || data?.token || data;
 
-    // ✅ Optional short delay (to show a smooth transition)
-    setTimeout(() => {
-      navigate("/", { state: { fromLogin: true } });
-    }, 300); // short 300ms delay for smoother transition
-  } catch (error) {
-    setErrorMessage(error.message || "Network error");
-  } finally {
-    setLoading(false);
-  }
-};
+      if (!token) throw new Error("No token returned from server");
 
+      localStorage.setItem("JWT", token);
+      setPassword("");
 
-  // return (
-  //   <div className="relative min-h-screen flex items-center justify-center p-4">
-  //     {/* Background Component */}
-  //     <HeroGeometric className="absolute inset-0 z-0" />
+      // Optional short delay for smooth transition
+      setTimeout(() => {
+        navigate("/", { state: { fromLogin: true } });
+      }, 300); 
+    } catch (error) {
+      setErrorMessage(error.message || "Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  //     {/* Login Form Container */}
-  //     <div className="relative z-10 w-full max-w-sm">
-  //       <form
-  //         className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-lg p-8 flex flex-col space-y-4"
-  //         onSubmit={handleSubmit}
-  //       >
-  //         <h2 className="text-3xl font-bold text-white text-center mb-4">Login</h2>
-
-  //         {/* Input fields */}
-  //         <input
-  //           type="text"
-  //           placeholder="Username or Email"
-  //           value={usernameOrEmail}
-  //           onChange={(e) => setUsernameOrEmail(e.target.value)}
-  //           className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-  //         />
-  //         <input
-  //           type="password"
-  //           placeholder="Password"
-  //           value={password}
-  //           onChange={(e) => setPassword(e.target.value)}
-  //           className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-  //         />
-
-  //         {/* Error Message */}
-  //         {errorMessage && (
-  //           <p className="text-red-400 text-sm text-center">{errorMessage}</p>
-  //         )}
-
-  //         {/* Submit Button */}
-  //         <button
-  //           type="submit"
-  //           disabled={loading}
-  //           className="w-full mt-4 px-4 py-3 bg-white/20 text-white font-semibold rounded-lg transition-all duration-300 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-  //         >
-  //           {loading ? (
-  //             <>
-  //               <Spinner />
-  //               Signing in...
-  //             </>
-  //           ) : (
-  //             "Sign In"
-  //           )}
-  //         </button>
-  //       </form>
-  //     </div>
-  //   </div>
-  // );
-
-  const CARD_BG = "#030303"; // Dark gray for card backgrounds
-  const ACCENT_GREEN = "#c9f24d"; // The lime green from Image 2
-
-  const cardClass = `
-    bg-[${CARD_BG}] 
-    rounded-2xl 
-    shadow-lg 
-    transition-all duration-300 ease-in-out 
-    hover:translate-y-[-2px] 
-    hover:shadow-xl 
-    flex flex-col 
-    p-6 // Apply padding universally to cards
-    text-white
-  `;
-
-  const DEFAULT_SPOTLIGHT_COLOR = `rgba(201, 242, 77, 0.1)`; // Light lime glow
-  const LOGOUT_SPOTLIGHT_COLOR = "rgba(255, 0, 0, 0.2)"; 
 
   return (
     <div className="relative min-h-screen overflow-hidden font-inter">
@@ -164,27 +102,31 @@ const LoginPage = () => {
         
         {/* Two-Column Card Wrapper (Responsive) */}
         <div 
-          className="flex w-full max-w-7xl h-[65vh] min-h-[600px] rounded-3xl shadow-2xl overflow-hidden bg-gray-900 border border-gray-700/20"
+          className={`
+            flex w-full max-w-7xl h-[65vh] min-h-[600px] rounded-3xl shadow-2xl overflow-hidden bg-gray-900 border border-gray-700/20
+            
+            // 3. ANIMATION CLASSES: 
+            opacity-0 
+            translate-y-5 
+            transition-all duration-700 ease-out 
+            ${isMounted ? 'opacity-100 translate-y-0' : ''} 
+          `}
         >
           
-          {/* LEFT COLUMN: Dashboard Preview Image (Hidden on Small Screens) */}
+          {/* LEFT COLUMN: Dashboard Preview Image */}
           <div 
             className="hidden lg:flex w-2/3 relative bg-cover bg-no-repeat rounded-l-3xl"
             style={{ 
-              // 1. Set the background image using the uploaded file reference
               backgroundImage: `url('${DASHBOARD_IMAGE_URL}')`,
-              // 2. Position the image to show the right half (from the perspective of the image content)
               backgroundPosition: '50% center', 
-              // 3. Zoom in to show only a portion and maintain aspect ratio
               backgroundSize: 'auto 100%', 
               backgroundColor: '#030303'
             }}
           >
-            {/* Dark Gradient Overlay (Black to Transparent, coming from the right) */}
+            {/* Dark Gradient Overlay */}
             <div 
               className="absolute inset-0 rounded-l-3xl"
               style={{
-                // Adjusting gradient to fade from dark gray (matching the form side)
                 background: 'linear-gradient(to right, rgba(17, 24, 39, 0.1) 0%,  #030303 90%)' 
               }}
             ></div>
@@ -200,7 +142,7 @@ const LoginPage = () => {
             </div>
           </div>
           
-          {/* RIGHT COLUMN: Login Form (Full width on mobile, 1/2 width on large screens) */}
+          {/* RIGHT COLUMN: Login Form */}
           <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#030303]/90 p-4 lg:p-12 backdrop-blur-sm">
             
             {/* Login Form Content */}

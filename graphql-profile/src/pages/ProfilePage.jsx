@@ -27,7 +27,7 @@ import AnimatedList from "../components/AnimatedList";
 import { SlidingNumber } from "../components/ui/shadcn-io/sliding-number";
 import LevelProgress from "../components/LevelProgress";
 
-export default function ProfilePage() {
+export default function ProfilePage({onAuthChange}) {
   const { data, error, isFetching, showWelcome, progress } = useProfileData();
   const navigate = useNavigate();
 
@@ -55,15 +55,18 @@ export default function ProfilePage() {
   // Function to handle the smooth logout transition
   const handleLogout = () => {
     // 1. Set state to trigger the fade-out animation
+    
     setIsExiting(true);
-
     // 2. Wait 500ms for the animation to complete
     setTimeout(() => {
       // 3. Clear token and navigate
       localStorage.removeItem("JWT");
-      navigate("/login");
+      if (onAuthChange) onAuthChange();
+      // navigate("/login");
+      
     }, 500); // Must match the duration-500 class below
   };
+
 
   if (error)
     return (

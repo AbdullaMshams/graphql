@@ -5,7 +5,7 @@ import { HeroGeometric } from "../components/ui/shadcn-io/shape-landing-hero";
 import dash from "../assets/dashboard.png";
 import LevelProgress from "../components/LevelProgress";
 
-const LoginPage = () => {
+const LoginPage = ({ onAuthChange }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
@@ -55,6 +55,7 @@ const LoginPage = () => {
     setErrorMessage("");
     setLoading(true);
 
+   
     if (!usernameOrEmail.trim() || !password) {
       setErrorMessage("Please enter username/email and password.");
       setLoading(false);
@@ -83,11 +84,13 @@ const LoginPage = () => {
 
       // Optional short delay for smooth transition
       setTimeout(() => {
-        navigate("/", { state: { fromLogin: true } });
+        if (onAuthChange) {
+            onAuthChange(); // 1. Force App to see the new token
+        }
+        navigate("/", { replace: true }); // 2. Navigate to the dashboard
       }, 300); 
     } catch (error) {
       setErrorMessage(error.message || "Network error");
-    } finally {
       setLoading(false);
     }
   };

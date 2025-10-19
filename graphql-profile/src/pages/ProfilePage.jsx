@@ -368,7 +368,7 @@ export default function ProfilePage({onAuthChange}) {
 
             {/* DRAG TO LOGOUT */}
             <SpotlightCard
-              className={`${cardClass} col-span-full sm:col-span-2 md:col-span-2 lg:col-span-3  xl:col-span-2 row-span-1 items-center justify-center`}
+              className={`${cardClass} col-span-full sm:col-span-2 md:col-span-2 lg:col-span-2  xl:col-span-2 row-span-1 items-center justify-center`}
               spotlightColor={LOGOUT_SPOTLIGHT_COLOR}
             >
               <DragToLogout

@@ -16,7 +16,7 @@ export default function WelcomeOverlay({ showWelcome, username }) {
           delay={300}
           animateBy="words"
           direction="top"
-          className="text-7xl md:text-6xl font-extrabold text-white tracking-tighter"
+          className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tighter"
         />
       </div>
     </div>
